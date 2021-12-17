@@ -21,13 +21,13 @@ int main() {
 
     while (1) {
 
-        from_client = server_handshake( &to_client );
+        from_client = server_setup();
 
         f = fork();
         if (f) {
             close(from_client);
-            close(to_client);
         } else {
+            to_client = server_connect(from_client);
             char buf[1000];
             for (int i = 0; i < 1000; i++) buf[i]=0;
 

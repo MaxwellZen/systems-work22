@@ -1,28 +1,35 @@
 #include "pipe_networking.h"
 
-
 /*=========================
-	server_handshake
-	args: int * to_client
-
-	Performs the client side pipe 3 way handshake.
-	Sets *to_client to the file descriptor to the downstream pipe.
-
-	returns the file descriptor for the upstream pipe.
-	=========================*/
-int server_handshake(int *to_client) {
+  server_setup
+  args:
+  creates the WKP (upstream) and opens it, waiting for a
+  connection.
+  removes the WKP once a connection has been made
+  returns the file descriptor for the upstream pipe.
+  =========================*/
+int server_setup() {
 	mkfifo(WKP, 0777);
-	char privname[HANDSHAKE_BUFFER_SIZE];
-	for (int i = 0; i < HANDSHAKE_BUFFER_SIZE; i++) privname[i]=0;
 	int from_client = open(WKP, O_RDONLY, 0777);
-	read(from_client, privname, HANDSHAKE_BUFFER_SIZE);
-	// printf("Server: received [%s] from client\n", privname);
 
 	remove(WKP);
 	// printf("Server: removed WKP\n");
+    return from_client;
+}
 
-	*to_client = open(privname, O_WRONLY);
-	write(*to_client, ACK, HANDSHAKE_BUFFER_SIZE);
+/*=========================
+  server_connect
+  args: int from_client
+  handles the subserver portion of the 3 way handshake
+  returns the file descriptor for the downstream pipe.
+  =========================*/
+int server_connect(int from_client) {
+    char privname[HANDSHAKE_BUFFER_SIZE];
+    for (int i = 0; i < HANDSHAKE_BUFFER_SIZE; i++) privname[i]=0;
+    read(from_client, privname, HANDSHAKE_BUFFER_SIZE);
+    // printf("Server: received [%s] from client\n", privname);
+	int to_client = open(privname, O_WRONLY);
+	write(to_client, ACK, HANDSHAKE_BUFFER_SIZE);
 	// printf("Server: wrote [%s] to client\n", ACK);
 
 	char message[HANDSHAKE_BUFFER_SIZE];
@@ -30,11 +37,11 @@ int server_handshake(int *to_client) {
 	read(from_client, message, HANDSHAKE_BUFFER_SIZE);
 	if (strcmp(message, ACK)) {
 		printf("Server: handshake failed - expected [%s], received [%s]\n", ACK, message);
-		return 0;
+		return -1;
 	}
 	// printf("Server: received [%s] from client\n", message);
 	printf("3-way handshake established\n");
-	return from_client;
+	return to_client;
 }
 
 
